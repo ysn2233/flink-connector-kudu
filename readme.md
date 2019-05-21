@@ -1,9 +1,9 @@
 # Flink-connector-kudu
 
-Apache Flink Kudu connector which provides sink recrods of DataStream to kudu tables. Batch processing has not been implemented yet.
+Apache Flink Kudu connector which provides sink recrods of Dataset and DataStream to kudu tables.
 
 ## Usage
-This is an example which sinks JSONObject records to kudu table. The example class is org.nn.flink.streaming.connectors.kudu.example.KuduSinkExample;
+This is an straming example which sinks JSONObject records to kudu table. The example class is org.nn.flink.streaming.connectors.kudu.example.KuduSinkExample. Batch example can be found as org.nn.flink.streaming.connectors.kudu.example.KuduBatchOutputExample.
 
 ``` java
 

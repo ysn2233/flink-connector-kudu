@@ -1,23 +1,21 @@
 package org.nn.flink.streaming.connectors.kudu;
 
+import org.apache.flink.api.common.io.RichOutputFormat;
 import org.apache.flink.configuration.Configuration;
-import org.apache.flink.streaming.api.functions.sink.RichSinkFunction;
 import org.apache.kudu.ColumnSchema;
 import org.apache.kudu.client.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.Properties;
 import java.util.stream.Collectors;
 
-/**
- *
- * @param <IN> Event type
- */
-public class KuduSink<IN> extends RichSinkFunction<IN> {
+public class KuduOutputFormat<IN> extends RichOutputFormat<IN> {
 
-    private static Logger logger = LoggerFactory.getLogger(KuduSink.class);
+
+    private static Logger logger = LoggerFactory.getLogger(KuduOutputFormat.class);
 
     private Configuration kuduConfig = new Configuration();
     private String masterAddress;
@@ -34,7 +32,7 @@ public class KuduSink<IN> extends RichSinkFunction<IN> {
      * @param converter Custom converter to convert <IN> record to {@link TableRow}
      * @param properties Kudu configuration
      */
-    public KuduSink(String masterAddress, String tableName, KuduTableRowConverter<IN> converter, Properties properties) {
+    public KuduOutputFormat(String masterAddress, String tableName, KuduTableRowConverter<IN> converter, Properties properties) {
         this(properties);
         this.masterAddress = masterAddress;
         this.tableName = tableName;
@@ -48,14 +46,14 @@ public class KuduSink<IN> extends RichSinkFunction<IN> {
      * @param converter Custom converter to convert <IN> record to {@link TableRow}
      * @param properties Kudu configuration
      */
-    public KuduSink(String masterAddress, TableSerializationSchema schema , KuduTableRowConverter<IN> converter, Properties properties) {
+    public KuduOutputFormat(String masterAddress, TableSerializationSchema schema , KuduTableRowConverter<IN> converter, Properties properties) {
         this(properties);
         this.masterAddress = masterAddress;
         this.schema = schema;
         this.kuduTableRowConverter = converter;
     }
 
-    public KuduSink(Properties properties) {
+    public KuduOutputFormat(Properties properties) {
         this.masterAddress =  properties.getProperty("masterAddress");
         this.tableName = properties.getProperty("tableName");
         kuduConfig.setLong("timeoutMillis", Long.valueOf(properties.getProperty("timeoutMillis", "30000")));
@@ -64,7 +62,12 @@ public class KuduSink<IN> extends RichSinkFunction<IN> {
     }
 
     @Override
-    public void open(Configuration parameters) {
+    public void configure(Configuration parameters) {
+
+    }
+
+    @Override
+    public void open(int taskNumber, int numTasks) throws IOException {
         this.client = new KuduClient.KuduClientBuilder(masterAddress).build();
         this.session = client.newSession();
         session.setFlushMode(SessionConfiguration.FlushMode.AUTO_FLUSH_BACKGROUND);
@@ -74,7 +77,7 @@ public class KuduSink<IN> extends RichSinkFunction<IN> {
     }
 
     @Override
-    public void invoke(IN row, Context context){
+    public void writeRecord(IN row) throws IOException {
         Insert insert;
         KuduTable table;
         try {
@@ -102,13 +105,20 @@ public class KuduSink<IN> extends RichSinkFunction<IN> {
         } catch (Exception e) {
             logger.error("Error inserting table", e);
         }
-
     }
 
+    /**
+     * Method that marks the end of the life-cycle of parallel output instance. Should be used to close
+     * channels and streams and release resources.
+     * After this method returns without an error, the output is assumed to be correct.
+     * <p>
+     * When this method is called, the output format it guaranteed to be opened.
+     *
+     * @throws IOException Thrown, if the input could not be closed properly.
+     */
     @Override
-    public void close() throws KuduException {
+    public void close() throws IOException {
         this.session.close();
         this.client.close();
     }
-
 }
