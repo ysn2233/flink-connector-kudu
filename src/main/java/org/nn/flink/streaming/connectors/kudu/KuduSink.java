@@ -28,6 +28,7 @@ public class KuduSink<IN> extends RichSinkFunction<IN> {
     private transient AsyncKuduClient client;
     private KuduMapper.Mode mode = KuduMapper.Mode.UPSERT;
     private TableSerializationSchema<IN> tableNameSerial;
+    private boolean tableAutoCreation = false;
 
     /**
      *
@@ -37,9 +38,11 @@ public class KuduSink<IN> extends RichSinkFunction<IN> {
      * @param converter Custom converter to convert <IN> record to {@link TableRow}
      * @param properties Kudu configuration
      */
-    public KuduSink(String masterAddress, String tableName, KuduMapper.Mode mode, KuduTableRowConverter<IN> converter, Properties properties) {
+    public KuduSink(String masterAddress, String tableName, KuduMapper.Mode mode, KuduTableRowConverter<IN> converter,
+                    boolean tableAutoCreation, Properties properties) {
         this(masterAddress, tableName, converter, properties);
         this.mode = mode;
+        this.tableAutoCreation = tableAutoCreation;
         setConfig(properties);
     }
 
@@ -50,7 +53,8 @@ public class KuduSink<IN> extends RichSinkFunction<IN> {
      * @param converter Custom converter to convert <IN> record to {@link TableRow}
      * @param properties Kudu configuration
      */
-    public KuduSink(String masterAddress, String tableName, KuduTableRowConverter<IN> converter, Properties properties) {
+    public KuduSink(String masterAddress, String tableName, KuduTableRowConverter<IN> converter,
+                    Properties properties) {
         this.masterAddress = masterAddress;
         this.tableName = tableName;
         this.kuduTableRowConverter = converter;
@@ -61,7 +65,6 @@ public class KuduSink<IN> extends RichSinkFunction<IN> {
      *
      * @param masterAddress Master address of Kudu
      * @param tableNameSerial Custom serialization tableNameSerial to sink to multiple tables
-     * @param mode Kudu operation mode {INSERT, UPDATE, UPSERT}
      * @param converter Custom converter to convert <IN> record to {@link TableRow}
      * @param properties Kudu configuration
      */
@@ -82,10 +85,12 @@ public class KuduSink<IN> extends RichSinkFunction<IN> {
      * @param properties Kudu configuration
      */
     public KuduSink(String masterAddress, TableSerializationSchema<IN> tableNameSerial,
-                    KuduMapper.Mode mode, KuduTableRowConverter<IN> converter, Properties properties) {
+                    KuduMapper.Mode mode, KuduTableRowConverter<IN> converter, boolean tableAutoCreation,
+                    Properties properties) {
 
         this(masterAddress, tableNameSerial, converter, properties);
         this.mode = mode;
+        this.tableAutoCreation = tableAutoCreation;
         setConfig(properties);
     }
 
@@ -110,12 +115,13 @@ public class KuduSink<IN> extends RichSinkFunction<IN> {
 
     @Override
     public void invoke(IN row, Context context){
-        Insert insert;
+        String currentTableName = tableName;
+        if (tableNameSerial != null) {
+            currentTableName = tableNameSerial.serializeTableName(row);
+        }
         try {
-            if (tableNameSerial != null)
-                table = client.syncClient().openTable(tableNameSerial.serializeTableName(row));
+            table = openTable(currentTableName);
         } catch (Exception e) {
-            e.printStackTrace();
             logger.error("Error open kudu table for insertion", e);
             return;
         }
@@ -124,10 +130,23 @@ public class KuduSink<IN> extends RichSinkFunction<IN> {
             Operation op = KuduMapper.rowOperation(tableRow, table, mode);
             session.apply(op);
         } catch (Exception e) {
-            e.printStackTrace();
             logger.error("Error inserting table", e);
         }
+    }
 
+    private KuduTable openTable(String currentTableName) throws Exception {
+        if (!client.syncClient().tableExists(currentTableName)) {
+            if (!tableAutoCreation) {
+                throw new UnsupportedOperationException(
+                        String.format("Table %s does not exists, auto-creation is disabled", currentTableName));
+            } else {
+                // TODO
+                throw new UnsupportedOperationException(
+                        String.format("Table %s does not exists, auto-creation feature is under development", currentTableName));
+            }
+        } else {
+            return client.syncClient().openTable(currentTableName);
+        }
     }
 
     @Override
