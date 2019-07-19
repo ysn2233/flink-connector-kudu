@@ -20,7 +20,7 @@ public class JsonKeyTableSerializationSchema implements TableSerializationSchema
     }
 
     @Override
-    public String serializeTable(JSONObject value) {
+    public String serializeTableName(JSONObject value) {
         return prefix + value.getString(key).toLowerCase() + suffix;
     }
 }

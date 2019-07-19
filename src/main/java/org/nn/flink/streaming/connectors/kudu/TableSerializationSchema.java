@@ -4,6 +4,6 @@ import java.io.Serializable;
 
 public interface TableSerializationSchema<IN> extends Serializable {
 
-    String serializeTable(IN value);
+    String serializeTableName(IN value);
 
 }

@@ -82,7 +82,7 @@ public class KuduOutputFormat<IN> extends RichOutputFormat<IN> {
         KuduTable table;
         try {
             if (schema != null)
-                table = client.openTable(schema.serializeTable(row));
+                table = client.openTable(schema.serializeTableName(row));
             else
                 table = client.openTable(tableName);
             insert = table.newInsert();
@@ -98,7 +98,7 @@ public class KuduOutputFormat<IN> extends RichOutputFormat<IN> {
                 PartialRow partialRow = insert.getRow();
                 if (tableRow.getPairs().containsKey(column)) {
                     Object value = tableRow.getElement(column);
-                    KuduInsertUtils.rowAdd(partialRow, column, value);
+                    KuduMapper.rowAdd(partialRow, column, value);
                 }
             }
             session.apply(insert);
