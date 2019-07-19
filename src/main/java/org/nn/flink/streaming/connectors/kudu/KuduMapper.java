@@ -1,16 +1,22 @@
 package org.nn.flink.streaming.connectors.kudu;
 
+import org.apache.kudu.ColumnSchema;
 import org.apache.kudu.Type;
+import org.apache.kudu.client.KuduTable;
+import org.apache.kudu.client.Operation;
 import org.apache.kudu.client.PartialRow;
 
 import java.nio.ByteBuffer;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 public class KuduMapper {
 
     private final static Map<Class, Type> kuduTypeMapping = new HashMap<>();
+
+    public enum Mode {INSERT, UPDATE, UPSERT}
 
     static {
         kuduTypeMapping.put(Boolean.class, Type.BOOL);
@@ -27,6 +33,34 @@ public class KuduMapper {
 
     public static Type getKuduType(Object value) {
         return kuduTypeMapping.get(value.getClass());
+    }
+
+    public static Operation rowOperation(TableRow tableRow, KuduTable table, Mode mode) {
+        Operation op;
+        switch (mode) {
+            case INSERT:
+                op = table.newInsert();
+                break;
+            case UPDATE:
+                op = table.newUpdate();
+                break;
+            case UPSERT:
+                op = table.newUpsert();
+                break;
+            default:
+                op = table.newUpsert();
+        }
+        List<ColumnSchema> columns = table.getSchema().getColumns();
+        for (ColumnSchema columnSchema : columns) {
+            PartialRow partialRow = op.getRow();
+            String columnName = columnSchema.getName().toLowerCase();
+            Type type = columnSchema.getType();
+            if (tableRow.getPairs().containsKey(columnName)) {
+                Object value = tableRow.getElement(columnName);
+                rowAdd(partialRow, columnName, value, type);
+            }
+        }
+        return op;
     }
 
     public static void rowAdd(PartialRow row, String key, Object value) {

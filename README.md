@@ -17,6 +17,7 @@ This is an straming example which sinks JSONObject records to kudu table. The ex
     KuduSink<JSONObject> kudu = new KuduSink<JSONObject>(
         MASTER_ADDRESS,
         TABLE_NAME,
+        KuduMapper.Mode.INSERT,
         new JsonKuduTableRowConverter(),
         properties
     )
@@ -28,12 +29,16 @@ This is an straming example which sinks JSONObject records to kudu table. The ex
 ```
 `JsonKuduTableRowConverter` is a class implements `KuduTableRowConverter` interface and provide the conversion between record type `<IN>` and `TableRow`
 
-## Multiple-tables
+## Operation mode
+Support three operation mode of Kudu - INSERT, UPDATE and UPSERT. User can set operation mode by passing argument to the constructor and the default mode is UPSERT,
+
+## Multiple tables
 This library supports sink to multiple tables based on custom stretegy. Here a example to achieve sinking JSONObject record to multiple tables based on the value of a certain key.
 ``` java
     KuduSink<JSONObject> kudu = new KuduSink<JSONObject>(
         MASTER_ADDRESS,
         new JsonKeyTableSerializationSchema(),
+        KuduMapper.Mode.UPSERT,
         new JsonKuduTableRowConverter(),
         properties
     )
@@ -59,6 +64,7 @@ Flink-kudu-connector提供DataStream和DataSet sink到Kudu table中的操作。
     KuduSink<JSONObject> kudu = new KuduSink<JSONObject>(
         MASTER_ADDRESS,
         TABLE_NAME,
+        KuduMapper.Mode.INSERT;
         new JsonKuduTableRowConverter(),
         properties
     )
@@ -70,12 +76,16 @@ Flink-kudu-connector提供DataStream和DataSet sink到Kudu table中的操作。
 ```
 `JsonKuduTableRowConverter`实现了`KuduTableRowConverter`接口，用于将某种类型的记录（这里是JSONObject）转化为TableRow来让代码处理。
 
+## 操作模式
+支持Kudu的三种操作模式 - INSERT, UPDATE, UPSERT， 可以通过构造函数传参设置操作模式，默认为UPSERT。
+
 ## 多表支持
 该库支持了自定义分配策略来将数据插入到不同的Kudu表中。下面是一个example实现了将JSON记录按某个key的值来插入到不同的表中去。
 ``` java
     KuduSink<JSONObject> kudu = new KuduSink<JSONObject>(
         MASTER_ADDRESS,
         new JsonKeyTableSerializationSchema("table_name", TABLE_PREFIX, TABLE_SUFFIX),
+        KuduMapper.Mode.UPSERT,
         new JsonKuduTableRowConverter(),
         properties
     )

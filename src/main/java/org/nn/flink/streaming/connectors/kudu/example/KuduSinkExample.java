@@ -2,6 +2,7 @@ package org.nn.flink.streaming.connectors.kudu.example;
 
 import com.alibaba.fastjson.JSONObject;
 import org.apache.flink.configuration.Configuration;
+import org.nn.flink.streaming.connectors.kudu.KuduMapper;
 import org.nn.flink.streaming.connectors.kudu.KuduSink;
 import org.apache.flink.api.java.utils.ParameterTool;
 import org.apache.flink.streaming.api.datastream.DataStream;
@@ -31,6 +32,7 @@ public class KuduSinkExample {
         KuduSink<JSONObject> kudu = new KuduSink<JSONObject>(
                 pt.get("masterAddress"),
                 new JsonKeyTableSerializationSchema("table_name", "impala::default.", ""),
+                KuduMapper.Mode.UPDATE,
                 new JsonKuduTableRowConverter(), properties);
 
         stream
